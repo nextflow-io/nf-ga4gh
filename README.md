@@ -41,17 +41,13 @@ tes.apiKey = '<key>'
 tes.oauthToken = '<token>'
 ```
 
-:::{tip}
 You can deploy a local [Funnel](https://ohsu-comp-bio.github.io/funnel/) server using the following command:
 
 ```bash
 ./funnel server --Server.HTTPPort 8000 --LocalStorage.AllowedDirs $HOME run
 ```
-:::
 
-:::{note}
 While the TES API is designed to abstract workflow managers from direct storage access, Nextflow still needs to access the shared work directory used by your TES endpoint. For example, if your TES endpoint is located in Azure and uses Azure Blob storage to store the work directory, you still need to provide the necessary Azure credentials for Nextflow to access the Blob storage.
-:::
 
 ## Plugin structure
                     
