@@ -50,10 +50,12 @@ sourceSets {
 }
 
 ext{
-    nextflowVersion = '24.04.0-edge'
+    nextflowVersion = '25.10.3'
 }
 
 dependencies {
+    compileOnly "org.apache.groovy:groovy:4.0.21"
+
     // This dependency is exported to consumers, that is to say found on their compile classpath.
     compileOnly "io.nextflow:nextflow:$nextflowVersion"
     compileOnly 'org.slf4j:slf4j-api:2.0.7'

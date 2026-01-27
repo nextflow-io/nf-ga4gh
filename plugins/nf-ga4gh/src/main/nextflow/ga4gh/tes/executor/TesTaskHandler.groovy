@@ -151,10 +151,27 @@ class TesTaskHandler extends TaskHandler {
 
     @Override
     void kill() {
-        if( requestId )
-            client.cancelTask(requestId)
-        else
+        if( requestId ) {
+            log.info "Cancelling TES task: $requestId"
+            try {
+                client.cancelTask(requestId)
+            }
+            catch( Exception e ) {
+                log.warn "Failed to cancel TES task: $requestId -- ${e.message}"
+            }
+        }
+        else {
             log.trace "[TES] Invalid kill request -- missing requestId"
+        }
+    }
+
+    /**
+     * Required implementation for Nextflow 25.10+ TaskHandler interface.
+     * This simply calls the existing kill() logic.
+     */
+    @Override
+    void killTask() {
+        kill()
     }
 
     @Override

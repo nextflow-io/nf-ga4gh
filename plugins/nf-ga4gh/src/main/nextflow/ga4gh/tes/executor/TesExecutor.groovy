@@ -107,14 +107,19 @@ class TesExecutor extends Executor implements ExtensionPoint {
     }
 
     protected String getEndpoint() {
-        def result = session.getConfigAttribute('executor.tes.endpoint', null)
-        if( result )
-            log.warn 'Config option `executor.tes.endpoint` is deprecated, use `tes.endpoint` instead'
-        else
-            result = session.config.navigate('tes.endpoint', 'http://localhost:8000')
+        // Navigate the config object for the legacy attribute
+        def result = session.config.navigate('executor.tes.endpoint') as String
 
-        log.debug "[TES] endpoint=$result"
-        return result
+        if( result ) {
+            log.warn 'Config option `executor.tes.endpoint` is deprecated, use `tes.endpoint` instead'
+        }
+        else {
+            // Navigate for the current preferred attribute with a default value
+            result = session.config.navigate('tes.endpoint', 'http://localhost:8000') as String
+        }
+
+        // Ensure no trailing slashes remain to prevent URL routing issues like //v1/tasks
+        return result?.endsWith('/') ? result.substring(0, result.length()-1) : result
     }
 
     protected Map<String, Authentication> getAuthentications() {
@@ -164,7 +169,14 @@ class TesExecutor extends Executor implements ExtensionPoint {
      * @return
      */
     TaskMonitor createTaskMonitor() {
-        return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
+        // return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
+        return TaskPollingMonitor.create(
+            session, 
+            (nextflow.executor.ExecutorConfig)session.config, 
+            name, 
+            100, 
+            Duration.of('1 sec')
+        )
     }
 
 
@@ -179,6 +191,3 @@ class TesExecutor extends Executor implements ExtensionPoint {
         new TesTaskHandler(task, this)
     }
 }
-
-
-
