@@ -107,19 +107,18 @@ class TesExecutor extends Executor implements ExtensionPoint {
     }
 
     protected String getEndpoint() {
-        // Navigate the config object for the legacy attribute
-        def result = session.config.navigate('executor.tes.endpoint') as String
+        def result = System.getenv('NXF_EXECUTOR_TES_ENDPOINT')
 
-        if( result ) {
-            log.warn 'Config option `executor.tes.endpoint` is deprecated, use `tes.endpoint` instead'
-        }
-        else {
-            // Navigate for the current preferred attribute with a default value
-            result = session.config.navigate('tes.endpoint', 'http://localhost:8000') as String
+        if (!result) {
+            result = session.config.navigate('executor.tes.endpoint') as String
+            if( result )
+                log.warn 'Config option `executor.tes.endpoint` is deprecated, use `tes.endpoint` instead'
+            else
+                result = session.config.navigate('tes.endpoint', 'http://localhost:8000') as String
         }
 
-        // Ensure no trailing slashes remain to prevent URL routing issues like //v1/tasks
-        return result?.endsWith('/') ? result.substring(0, result.length()-1) : result
+        log.debug "[TES] endpoint=$result"
+        return result
     }
 
     protected Map<String, Authentication> getAuthentications() {

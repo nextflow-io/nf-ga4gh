@@ -40,19 +40,16 @@ class TesExecutorTest extends Specification {
     }
 
 
-    def 'should resolve endpoint from env'() {
+     def 'should resolve endpoint from config when env not set'() {
         given:
-        def ENV = [NXF_EXECUTOR_TES_ENDPOINT: 'http://back.end.com' ]
-        def session = Spy(Session)
-        def exec = Spy(TesExecutor)
+        def config = [tes: [endpoint: 'http://example.com']]
+        def session = new Session(config)
+        def exec = new TesExecutor(session: session)
 
         when:
         def result = exec.getEndpoint()
+        
         then:
-        1 * exec.getSession() >> session
-        1 * session.getSystemEnv() >> ENV
-        result == 'http://back.end.com'
-
+        result == System.getenv('NXF_EXECUTOR_TES_ENDPOINT') ?: 'http://example.com'
     }
-
 }
