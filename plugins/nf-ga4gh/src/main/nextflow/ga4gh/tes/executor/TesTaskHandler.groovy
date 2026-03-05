@@ -169,7 +169,6 @@ class TesTaskHandler extends TaskHandler {
      * Required implementation for Nextflow 25.10+ TaskHandler interface.
      * This simply calls the existing kill() logic.
      */
-    @Override
     void killTask() {
         kill()
     }

@@ -18,13 +18,15 @@ java {
     }
 }
 
+def JAVA_VER = 17
+
 compileJava {
-    options.release.set(11)
+    options.release.set(JAVA_VER)
 }
 
 tasks.withType(GroovyCompile) {
-    sourceCompatibility = '11'
-    targetCompatibility = '11'
+    sourceCompatibility = "${JAVA_VER}"
+    targetCompatibility = "${JAVA_VER}"
 }
 
 tasks.withType(Test) {
