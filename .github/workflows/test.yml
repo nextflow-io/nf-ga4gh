@@ -1,4 +1,4 @@
-name: nf-ga4gh CI
+name: nf-ga4gh CI (test)
 on:
   push:
     branches:
@@ -31,6 +31,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{matrix.java_version}}
+          architecture: x64
           distribution: 'temurin'
 
       - name: Build and test with NXF_VER=${{ matrix.nextflow_version }}

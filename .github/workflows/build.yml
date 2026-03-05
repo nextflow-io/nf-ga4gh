@@ -43,4 +43,3 @@ jobs:
         run: ./gradlew check
         env:
           GRADLE_OPTS: '-Dorg.gradle.daemon=false'
-
