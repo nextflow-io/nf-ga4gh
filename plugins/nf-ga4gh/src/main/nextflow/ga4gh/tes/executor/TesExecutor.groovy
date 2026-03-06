@@ -166,29 +166,28 @@ class TesExecutor extends Executor implements ExtensionPoint {
     /**
      * Create a a queue holder for this executor
      *
-     * @return The task monitor instance
+     * @return the task monitor instance
      */
     TaskMonitor createTaskMonitor() {
-    try {
-        // Reflective call for newer Nextflow API (25.10.0+)
-        ClassLoader cls = session.class.classLoader ?: this.class.classLoader
-        Class<?> monitorClass = cls.loadClass('nextflow.processor.TaskPollingMonitor')
-        Object config = session.config
-        java.lang.reflect.Method createMethod = monitorClass.getMethod(
-            'create',
-            Session,
-            executorConfigClass,
-            String,
-            Integer,
-            Duration
-        )
-        return (TaskMonitor) createMethod.invoke(null, session, config, name, 100, Duration.of('1 sec'))
-    }
-    catch (ReflectiveOperationException | SecurityException e) {
-        // Fallback for older Nextflow API (pre 25.10.0)
-        return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
-    }
-}
+        try {
+            // Reflective call for newer Nextflow API (25.10.0+)
+            ClassLoader cls = session.class.classLoader ?: this.class.classLoader
+            Class<?> monitorClass = cls.loadClass('nextflow.processor.TaskPollingMonitor')
+            Object config = session.config
+            java.lang.reflect.Method createMethod = monitorClass.getMethod(
+                'create',
+                Session,
+                executorConfigClass,
+                String,
+                Integer,
+                Duration
+            )
+            return (TaskMonitor) createMethod.invoke(null, session, config, name, 100, Duration.of('1 sec'))
+        }
+        catch (ReflectiveOperationException | SecurityException e) {
+            // Fallback for older Nextflow API (pre 25.10.0)
+            return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
+        }
     }
 
     /*
