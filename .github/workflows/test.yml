@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         nextflow_version: [
-            '24.10.8', 
+            '25.10.0', 
             '25.10.4', 
             '26.02.0-edge'
         ]
