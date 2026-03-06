@@ -166,20 +166,30 @@ class TesExecutor extends Executor implements ExtensionPoint {
     /**
      * Create a a queue holder for this executor
      *
-     * @return
+     * @return The task monitor instance
      */
-    @CompileStatic(TypeCheckingMode.SKIP)
     TaskMonitor createTaskMonitor() {
-        try {
-            def executorConfigClass = Class.forName('nextflow.executor.ExecutorConfig')
-            def config = session.config
-            def createMethod = TaskPollingMonitor.class.getMethod('create', Session, executorConfigClass, String, Integer, Duration)
-            return createMethod.invoke(null, session, config, name, 100, Duration.of('1 sec'))
-        } catch (Exception e) {
-            return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
-        }
+    try {
+        // Reflective call for newer Nextflow API (25.10.0+)
+        ClassLoader cls = session.class.classLoader ?: this.class.classLoader
+        Class<?> monitorClass = cls.loadClass('nextflow.processor.TaskPollingMonitor')
+        Object config = session.config
+        java.lang.reflect.Method createMethod = monitorClass.getMethod(
+            'create',
+            Session,
+            executorConfigClass,
+            String,
+            Integer,
+            Duration
+        )
+        return (TaskMonitor) createMethod.invoke(null, session, config, name, 100, Duration.of('1 sec'))
     }
-
+    catch (ReflectiveOperationException | SecurityException e) {
+        // Fallback for older Nextflow API (pre 25.10.0)
+        return TaskPollingMonitor.create(session, name, 100, Duration.of('1 sec'))
+    }
+}
+    }
 
     /*
      * Prepare and launch the task in the underlying execution platform
@@ -191,4 +201,5 @@ class TesExecutor extends Executor implements ExtensionPoint {
         log.debug "[TES] Launching process > ${task.name} -- work folder: ${task.workDir}"
         new TesTaskHandler(task, this)
     }
+
 }
