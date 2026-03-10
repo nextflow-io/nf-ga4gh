@@ -10,13 +10,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TODO: Possible way to automatically fetch latest nextflow versions to prevent drift?
+        #       e.g. from nf-core/setup-nextflow action → https://github.com/nf-core/setup-nextflow
+        #       Or better to manually add/remove as needed?
         nextflow_version: [
             '25.10.0', 
             '25.10.4', 
-            '26.02.0-edge'
+            '25.10',
         ]
+        # TODO: Same question for Java versions:
+        #       e.g. from setup/java action → https://github.com/actions/setup-java
+        #       Probably better to simply manually manage versions for now...
         java_version: [
-            11,
             17,
             21
         ]
