@@ -31,9 +31,11 @@ jobs:
           java-version: ${{ matrix.java_version }}
           distribution: 'temurin'
           cache: 'gradle'
-      
-      - name: Read plugin version
-        id: plugin_version
+
+      # TODO: This is a bit of clunky code since we weren't able to get `NXF_PLUGINS_DEV` working as expected
+      #       i.e. Was only able to use the local plugin by explicitly setting the version in the `Install nf-canary` step below
+      #       Is there a better way to have Nextflow use the locally-built plugin?
+      - name: Get plugin version
         shell: bash
         run: |
           PLUGIN_VERSION="$(awk -F': ' '$1=="Plugin-Version"{print $2}' plugins/nf-ga4gh/src/resources/META-INF/MANIFEST.MF | tr -d '\r')"
@@ -68,18 +70,15 @@ jobs:
           cd ..
           git clone https://github.com/seqeralabs/nf-canary
           cd nf-canary
-
           cat <<EOF > nextflow.config.tes
           plugins {
-            id "nf-ga4gh@$PLUGIN_VERSION"
+            id "nf-ga4gh@$PLUGIN_VERSION"   // <---- Explictly setting the plugin version here...
           }
-
           // Nextflow config file for running on TES Backend
           process {
               executor = 'tes'
               container = 'ubuntu:latest'
           }
-
           params {
               // TES
               endpoint                   = 'http://localhost:8000'
