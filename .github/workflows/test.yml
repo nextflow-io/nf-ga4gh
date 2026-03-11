@@ -59,6 +59,7 @@ jobs:
       #       - https://github.com/JaeAeich/poiesis
       - name: Install TES Server
         run: |
+          # https://github.com/ohsu-comp-bio/funnel/releases/tag/v0.11.8
           curl -fsSL https://ohsu-comp-bio.github.io/funnel/install.sh | bash -s -- v0.11.8
 
       - name: Start TES Server
