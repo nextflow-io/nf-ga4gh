@@ -10,17 +10,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO: Possible way to automatically fetch latest nextflow versions to prevent drift?
-        #       e.g. from nf-core/setup-nextflow action → https://github.com/nf-core/setup-nextflow
-        #       Or better to manually add/remove as needed?
         nextflow_version: [
-            '25.10.0', 
-            '25.10.4', 
             '25.10',
         ]
-        # TODO: Same question for Java versions:
-        #       e.g. from setup/java action → https://github.com/actions/setup-java
-        #       Probably better to simply manually manage versions for now...
         java_version: [
             17,
             21
@@ -39,12 +31,87 @@ jobs:
           java-version: ${{ matrix.java_version }}
           distribution: 'temurin'
           cache: 'gradle'
-
-      - name: Build and Test
+      
+      - name: Read plugin version
+        id: plugin_version
+        shell: bash
         run: |
-          make clean
-          make assemble
-          make test
-        env:
-          NXF_VER: ${{ matrix.nextflow_version }}
-          GRADLE_OPTS: '-Dorg.gradle.daemon=false'
+          PLUGIN_VERSION="$(awk -F': ' '$1=="Plugin-Version"{print $2}' plugins/nf-ga4gh/src/resources/META-INF/MANIFEST.MF | tr -d '\r')"
+          echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
+          echo "Using plugin version: ${PLUGIN_VERSION}"
+                  
+      - name: Build Plugin
+        run: |
+          make buildPlugins
+          mkdir -p ~/.nextflow/plugins/
+          cp -r build/plugins/nf-ga4gh-$PLUGIN_VERSION ~/.nextflow/plugins/
+
+      - name: Install Nextflow ${{ matrix.nextflow_version }}
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.nextflow_version }}
+
+      # TODO: Could try adding other TES implementations here like TESK, Sprocket, Poiesis, etc...
+      #       - https://github.com/elixir-cloud-aai/TESK
+      #       - https://github.com/stjude-rust-labs/sprocket
+      #       - https://github.com/JaeAeich/poiesis
+      - name: Install TES Server
+        run: |
+          curl -fsSL https://ohsu-comp-bio.github.io/funnel/install.sh | bash -s -- v0.11.8
+
+      - name: Start TES Server
+        run: |
+          funnel server run > funnel.log 2>&1 &
+
+      - name: Install nf-canary
+        run: |
+          cd ..
+          git clone https://github.com/seqeralabs/nf-canary
+          cd nf-canary
+
+          cat <<EOF > nextflow.config.tes
+          plugins {
+            id "nf-ga4gh@$PLUGIN_VERSION"
+          }
+
+          // Nextflow config file for running on TES Backend
+          process {
+              executor = 'tes'
+              container = 'ubuntu:latest'
+          }
+
+          params {
+              // TES
+              endpoint                   = 'http://localhost:8000'
+              basicUsername              = null
+              basicPassword              = null
+          }
+          EOF
+
+      - name: Run nf-canary
+        run: |
+          cd ../nf-canary
+          export NXF_ANSI_LOG=false
+          nextflow run main.nf -c nextflow.config.tes \
+            -with-report report.html \
+            -with-timeline timeline.html
+
+      - name: Stage Reports
+        if: always()
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/results
+          cd ../nf-canary
+          
+          # Nextflow Logs
+          cp -f report.html timeline.html .nextflow.log $GITHUB_WORKSPACE/results/ || true
+
+          # Funnel Logs
+          cp -f $GITHUB_WORKSPACE/funnel.log $GITHUB_WORKSPACE/results/ || true
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nf-canary-results-nxf-${{ matrix.nextflow_version }}-java${{ matrix.java_version }}
+          path: results/
+          retention-days: 7
