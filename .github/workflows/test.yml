@@ -15,7 +15,7 @@ jobs:
         ]
         java_version: [
             17,
-            21
+            21,
         ]
 
     steps:
