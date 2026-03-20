@@ -11,7 +11,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java_version: [17, 21]
+        java_version: [
+          17, 
+          21,
+        ]
 
     steps:
       - name: Environment
@@ -51,7 +54,6 @@ jobs:
             '25.10',
         ]
         java_version: [
-            17,
             21,
         ]
 
@@ -141,6 +143,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: nf-canary-results-nxf-${{ matrix.nextflow_version }}-java${{ matrix.java_version }}
+          name: test-results-nxf-${{ matrix.nextflow_version }}-java-${{ matrix.java_version }}
           path: results/
           retention-days: 7
