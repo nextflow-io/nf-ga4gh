@@ -71,13 +71,6 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Get plugin version
-        shell: bash
-        run: |
-          PLUGIN_VERSION="$(./gradlew -q properties | awk -F': ' '/^version:/ {print $2; exit}')"
-          echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
-          echo "Using plugin version: ${PLUGIN_VERSION}"
-
       - name: Install Plugin
         run: |
           make install
@@ -95,6 +88,13 @@ jobs:
       - name: Start TES Server
         run: |
           funnel server run > funnel.log 2>&1 &
+
+      - name: Get plugin version
+        shell: bash
+        run: |
+          PLUGIN_VERSION="$(./gradlew -q properties | awk -F': ' '/^version:/ {print $2; exit}')"
+          echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
+          echo "Using plugin version: ${PLUGIN_VERSION}"
 
       - name: Install nf-canary
         run: |
