@@ -22,10 +22,6 @@ Configure the TES executor:
 
 ```groovy
 process.executor = 'tes'
-
-tes {
-    endpoint = '<endpoint>'
-}
 ```
 
 > [!NOTE]
@@ -38,18 +34,16 @@ tes {
 
 ### Endpoint
 
-The default endpoint is `http://localhost:8000`
-
 > [!TIP]
 >
 > It is important that the endpoint is specified without the trailing slash; otherwise, the resulting URLs will not be normalized and the requests to TES will fail.
 
-You can deploy a local [Funnel](https://ohsu-comp-bio.github.io/funnel) server using the following commands:
+The default endpoint is `http://localhost:8000`
 
-```bash
-curl -fsSL https://ohsu-comp-bio.github.io/funnel/install.sh | bash
-
-funnel server run
+```groovy
+tes {
+    endpoint = '<endpoint>'
+}
 ```
 
 ### Authentication
@@ -80,6 +74,16 @@ tes {
 tes {
     oauthToken = '<token>'
 }
+```
+
+### TES Server
+
+You can deploy a local [Funnel](https://ohsu-comp-bio.github.io/funnel) server using the following commands:
+
+```bash
+curl -fsSL https://ohsu-comp-bio.github.io/funnel/install.sh | bash
+
+funnel server run
 ```
 
 ## Resources
