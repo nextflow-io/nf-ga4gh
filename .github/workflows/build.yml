@@ -1,4 +1,4 @@
-name: nf-ga4gh CI (build)
+name: nf-ga4gh CI
 on:
   push:
 
@@ -40,7 +40,7 @@ jobs:
 
   e2e-test:
     needs: build
-    name: NXF ${{ matrix.nextflow_version }} / Java ${{ matrix.java_version }}
+    name: Test nf-ga4gh
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -76,7 +76,7 @@ jobs:
           echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
           echo "Using plugin version: ${PLUGIN_VERSION}"
 
-      - name: Build Plugin
+      - name: Install Plugin
         run: |
           make install
 
@@ -102,7 +102,7 @@ jobs:
           cat <<EOF > nextflow.config.tes
           // Nextflow config file for running on TES Backend
           plugins {
-            id "nf-ga4gh@${PLUGIN_VERSION}""
+            id "nf-ga4gh@${PLUGIN_VERSION}"
           }
           process {
               executor = 'tes'
@@ -120,7 +120,7 @@ jobs:
         run: |
           cd ../nf-canary
           export NXF_ANSI_LOG=false
-          nextflow run main.nf -plugins nf-ga4gh@${PLUGIN_VERSION} \
+          nextflow run main.nf \
             -config nextflow.config.tes \
             -with-report report.html \
             -with-timeline timeline.html
