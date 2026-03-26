@@ -1,6 +1,11 @@
 name: nf-ga4gh CI
 on:
   push:
+    branches:
+      - 'master'
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         java_version: [
-          17, 
+          17,
           21,
         ]
 
@@ -31,13 +36,10 @@ jobs:
         with:
           java-version: ${{matrix.java_version}}
           distribution: 'temurin'
-          cache: 'gradle'                
+          cache: 'gradle'
 
-      - name: Compile
-        run: ./gradlew assemble
-
-      - name: Tests
-        run: ./gradlew check
+      - name: Unit tests
+        run: make test
         env:
           GRADLE_OPTS: '-Dorg.gradle.daemon=false'
 
@@ -71,14 +73,14 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Install Plugin
-        run: |
-          make install
-
       - name: Install Nextflow ${{ matrix.nextflow_version }}
         uses: nf-core/setup-nextflow@v2
         with:
           version: ${{ matrix.nextflow_version }}
+
+      - name: Install Plugin
+        run: |
+          make install
 
       - name: Install TES Server
         run: |
@@ -92,19 +94,16 @@ jobs:
       - name: Get plugin version
         shell: bash
         run: |
-          PLUGIN_VERSION="$(./gradlew -q properties | awk -F': ' '/^version:/ {print $2; exit}')"
+          PLUGIN_VERSION="$(cat VERSION)"
           echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
           echo "Using plugin version: ${PLUGIN_VERSION}"
 
       - name: Install nf-canary
         run: |
-          cd ..
-          git clone https://github.com/seqeralabs/nf-canary
-          cd nf-canary
-          cat <<EOF > nextflow.config.tes
+          cat <<EOF > nextflow.config
           // Nextflow config file for running on TES Backend
           plugins {
-            id "nf-ga4gh@${PLUGIN_VERSION}"
+            id 'nf-ga4gh@${PLUGIN_VERSION}'
           }
           process {
               executor = 'tes'
@@ -116,23 +115,20 @@ jobs:
               basicUsername              = null
               basicPassword              = null
           }
+          report.enabled = true
+          timeline.enabled = true
           EOF
 
       - name: Run nf-canary
         run: |
-          cd ../nf-canary
           export NXF_ANSI_LOG=false
-          nextflow run main.nf \
-            -config nextflow.config.tes \
-            -with-report report.html \
-            -with-timeline timeline.html
+          nextflow run seqeralabs/nf-canary
 
       - name: Stage Reports
         if: always()
         run: |
           mkdir -p $GITHUB_WORKSPACE/results
-          cd ../nf-canary
-          
+
           # Nextflow Logs
           cp -f report.html timeline.html .nextflow.log $GITHUB_WORKSPACE/results/ || true
 
