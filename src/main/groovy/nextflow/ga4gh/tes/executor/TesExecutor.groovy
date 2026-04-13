@@ -147,6 +147,11 @@ class TesExecutor extends Executor implements ExtensionPoint {
         return storageAccount
     }
 
+    protected Map<String,String> getTags() {
+        final Map<String,String> result = session.config.navigate('tes.tags') as Map
+        return result
+    }
+
     /**
      * @return {@code true} whenever the containerization is managed by the executor itself
      */
