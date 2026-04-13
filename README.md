@@ -30,7 +30,28 @@ process.executor = 'tes'
 > 
 > For example, if your TES endpoint is located in Azure and uses Azure Blob storage to store the work directory, you still need to provide the necessary Azure credentials for Nextflow to access the Blob storage.
 
-## Examples
+## Configuration
+
+```groovy
+plugins {
+    id 'nf-ga4gh'
+}
+process {
+    executor = 'tes'
+    container = 'quay.io/nextflow/bash'
+}
+tes {
+    // See `Authentication` section
+    endpoint = 'http://localhost:8000'
+    // Override the default 10s timeout
+    timeout = 30
+    // TES task tags
+    tags {
+        tag1 = 'abc'
+        tag2 = 'xyz'
+    }
+}
+```
 
 ### Endpoint
 
@@ -76,7 +97,7 @@ tes {
 }
 ```
 
-### TES Server
+## TES Server
 
 You can deploy a local [Funnel](https://ohsu-comp-bio.github.io/funnel) server using the following commands:
 
