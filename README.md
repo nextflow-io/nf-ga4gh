@@ -43,8 +43,13 @@ process {
 tes {
     // See `Authentication` section
     endpoint = 'http://localhost:8000'
-    // Override the default 10s timeout
+
+    // Override the default request timeout (10s)
     timeout = 30
+
+    // Override the default task polling interval (50ms)
+    pollInterval = '5s'
+
     // TES task tags
     tags {
         tag1 = 'abc'
