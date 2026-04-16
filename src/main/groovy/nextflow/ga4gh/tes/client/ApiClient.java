@@ -44,6 +44,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.net.URLConnection;
 import java.net.URLEncoder;
@@ -827,6 +828,18 @@ public class ApiClient {
             return Files.createTempFile(Paths.get(tempFolderPath), prefix, suffix).toFile();
     }
 
+    private String getRequestUrl(Call call) {
+        String requestUrl = "<unknown>";
+        try {
+            Field field = Call.class.getDeclaredField("originalRequest");
+            field.setAccessible(true);
+            requestUrl = ((Request) field.get(call)).urlString();
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            System.out.println("Unable to get request URL: " + e);
+        }
+        return requestUrl;
+    }
+
     /**
      * {@link #execute(Call, Type)}
      *
@@ -851,12 +864,13 @@ public class ApiClient {
      * @throws ApiException If fail to execute the call
      */
     public <T> ApiResponse<T> execute(Call call, Type returnType) throws ApiException {
+        String requestUrl = getRequestUrl(call);
         try {
             Response response = call.execute();
-            T data = handleResponse(response, returnType);
+            T data = handleResponse(response, returnType, requestUrl);
             return new ApiResponse<T>(response.code(), response.headers().toMultimap(), data);
         } catch (IOException e) {
-            throw new ApiException(e);
+            throw new ApiException("Error during request to '" + requestUrl + "': " + e);
         }
     }
 
@@ -882,17 +896,18 @@ public class ApiClient {
      */
     @SuppressWarnings("unchecked")
     public <T> void executeAsync(Call call, final Type returnType, final ApiCallback<T> callback) {
+        String requestUrl = getRequestUrl(call);
         call.enqueue(new Callback() {
             @Override
             public void onFailure(Request request, IOException e) {
-                callback.onFailure(new ApiException(e), 0, null);
+                callback.onFailure(new ApiException("Error during request to '" + requestUrl + "': " + e), 0, null);
             }
 
             @Override
             public void onResponse(Response response) throws IOException {
                 T result;
                 try {
-                    result = (T) handleResponse(response, returnType);
+                    result = (T) handleResponse(response, returnType, requestUrl);
                 } catch (ApiException e) {
                     callback.onFailure(e, response.code(), response.headers().toMultimap());
                     return;
@@ -912,7 +927,7 @@ public class ApiClient {
      *   fail to deserialize the response body
      * @return Type
      */
-    public <T> T handleResponse(Response response, Type returnType) throws ApiException {
+    public <T> T handleResponse(Response response, Type returnType, String requestUrl) throws ApiException {
         if (response.isSuccessful()) {
             if (returnType == null || response.code() == 204) {
                 // returning null if the returnType is not defined,
@@ -934,10 +949,10 @@ public class ApiClient {
                 try {
                     respBody = response.body().string();
                 } catch (IOException e) {
-                    throw new ApiException(response.message(), e, response.code(), response.headers().toMultimap());
+                    throw new ApiException("Error during request to '" + requestUrl + "': " + response.message(), e, response.code(), response.headers().toMultimap());
                 }
             }
-            throw new ApiException(response.message(), response.code(), response.headers().toMultimap(), respBody);
+            throw new ApiException("Error during request to '" + requestUrl + "': " + response.message(), response.code(), response.headers().toMultimap(), respBody);
         }
     }
 
