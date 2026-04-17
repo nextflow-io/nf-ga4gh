@@ -833,7 +833,8 @@ public class ApiClient {
         try {
             Field field = Call.class.getDeclaredField("originalRequest");
             field.setAccessible(true);
-            requestUrl = ((Request) field.get(call)).urlString();
+            Request request = ((Request) field.get(call));
+            requestUrl = request.method().toUpperCase() + " " + request.urlString();
         } catch (NoSuchFieldException | IllegalAccessException e) {
             System.out.println("Unable to get request URL: " + e);
         }
