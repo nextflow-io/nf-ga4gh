@@ -47,8 +47,8 @@ tes {
     // Override the default request timeout (10s)
     timeout = 30
 
-    // Override the default task polling interval (50ms)
-    pollInterval = '5s'
+    // Override the default task polling interval (5s)
+    pollInterval = '10s'
 
     // TES task tags
     tags {

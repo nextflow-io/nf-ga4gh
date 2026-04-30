@@ -170,7 +170,7 @@ class TesExecutor extends Executor implements ExtensionPoint {
      * @return the task monitor instance
      */
     TaskMonitor createTaskMonitor() {
-        final pollInterval = session.config.navigate('tes.pollInterval', '50ms') as String;
+        final pollInterval = session.config.navigate('tes.pollInterval', '5s') as String;
         TaskMonitor tpm = TaskPollingMonitor.create(session, config, name, 5, Duration.of(pollInterval));
         log.debug "Initialized task polling monitor (polling interval: ${pollInterval})";
         return tpm;
