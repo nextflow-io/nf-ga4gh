@@ -84,12 +84,28 @@ jobs:
 
       - name: Install TES Server
         run: |
-          # https://github.com/ohsu-comp-bio/funnel/releases/tag/v0.11.8
-          curl -fsSL https://calypr.github.io/funnel/install.sh | bash -s -- v0.11.8
+          # Pinning install script below to stable commit for security/reproducibility
+          # Ref: https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions
+          # Release: https://github.com/calypr/funnel/releases/tag/v0.11.8
+
+          INSTALL_SCRIPT=https://raw.githubusercontent.com/calypr/funnel/4103475e492dec1fd853e9863d0caad15fc504c0/install.sh
+          curl -fsSL $INSTALL_SCRIPT | bash -s -- v0.11.8
 
       - name: Start TES Server
         run: |
-          funnel server run > funnel.log 2>&1 &
+          set -euo pipefail
+          nohup funnel server run > funnel.log 2>&1 &
+          echo $! > funnel.pid
+          for i in $(seq 1 10); do
+            if curl -fsS http://localhost:8000/ >/dev/null 2>&1; then
+              echo "Funnel server started"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Funnel server failed to start!"
+          cat funnel.log
+          exit 1
 
       - name: Get plugin version
         shell: bash
