@@ -97,7 +97,7 @@ jobs:
           nohup funnel server run > funnel.log 2>&1 &
           echo $! > funnel.pid
           for i in $(seq 1 10); do
-            if curl -fsS http://localhost:8000/ >/dev/null 2>&1; then
+            if curl -fsS http://localhost:8000/service-info >/dev/null 2>&1; then
               echo "Funnel server started"
               exit 0
             fi
