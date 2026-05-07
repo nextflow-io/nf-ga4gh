@@ -27,6 +27,7 @@ import java.nio.file.Path
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import nextflow.exception.ProcessUnrecoverableException
+import nextflow.ga4gh.tes.client.ApiException
 import nextflow.executor.BashWrapperBuilder
 import nextflow.ga4gh.tes.client.api.TaskServiceApi
 import nextflow.ga4gh.tes.client.model.TesExecutor as TesExecutorModel
@@ -35,6 +36,8 @@ import nextflow.ga4gh.tes.client.model.TesOutput
 import nextflow.ga4gh.tes.client.model.TesResources
 import nextflow.ga4gh.tes.client.model.TesState
 import nextflow.ga4gh.tes.client.model.TesTask
+import nextflow.ga4gh.tes.client.model.TesTaskLog
+import nextflow.ga4gh.tes.client.model.TesExecutorLog
 import nextflow.processor.TaskConfig
 import nextflow.processor.TaskHandler
 import nextflow.processor.TaskRun
@@ -137,11 +140,21 @@ class TesTaskHandler extends TaskHandler {
 
     private int readExitStatus() {
         try {
-            return client
-                .getTask(requestId, 'FULL')
-                .logs[0]
-                .logs[0]
-                .exitCode
+            TesTask tesTask = client.getTask(requestId, 'FULL')
+            if (tesTask.state == TesState.COMPLETE) {
+                return 0
+            }
+
+            TesTaskLog tesTaskLog = tesTask.logs[0]
+            TesExecutorLog tesExecutorLog = tesTaskLog.logs[0]            
+            log.warn "[TES] Task [id: $requestId, name: $task.name] failed with status `${tesTask.state}`.\nPlease look at the TES task logs for more details:"
+            if (tesTask.state == TesState.EXECUTOR_ERROR) {
+                log.warn "${tesExecutorLog}"
+                return tesExecutorLog.exitCode
+            } else {
+                log.warn "${tesTaskLog}.\nDefaulting exit_code to 1."
+                return 1
+            }
         }
         catch( Exception e ) {
             log.trace "[TES] Cannot read exitstatus for task: `$task.name` | ${e.message}"
@@ -183,9 +196,16 @@ class TesTaskHandler extends TaskHandler {
 
         final body = newTesTask()
 
-        // submit the task
-        final task = client.createTask(body)
-        requestId = task.id
+        try{
+            // submit the task
+            final task = client.createTask(body)
+            requestId = task.id
+        }
+        catch( ApiException e ) {
+            log.error "Failed to submit task `${body.name}` to TES endpoint `${executor.getEndpoint()}` -- ${e.responseBody}"
+            throw e
+        }
+        log.info("[TES] Created task with ID: $requestId, name: ${body.name}")
         status = TaskStatus.SUBMITTED
     }
 

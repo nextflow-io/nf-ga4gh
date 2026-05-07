@@ -64,11 +64,17 @@ class TesExecutor extends Executor implements ExtensionPoint {
     protected void register() {
         super.register()
         uploadBinDir()
-
+        final timeout = session.config.navigate('tes.timeout', 10) as int
         client = new TaskServiceApi( new ApiClient(
                 basePath: getEndpoint(),
                 debugging: log.isTraceEnabled(),
                 authentications: getAuthentications()) )
+        if (timeout) {
+            client.apiClient.setConnectTimeout(timeout * 1000)
+            client.apiClient.setReadTimeout(timeout * 1000)
+            client.apiClient.setWriteTimeout(timeout * 1000)
+        }
+        log.info "Initialized TES executor > endpoint: ${getEndpoint()} -- timeout: ${client.apiClient.getConnectTimeout() / 1000}s"
     }
 
     protected String getDisplayName() {

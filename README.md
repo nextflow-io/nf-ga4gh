@@ -102,7 +102,18 @@ tes {
 }
 ```
 
+<<<<<<< master
+### Timeout 
+```groovy
+tes {
+    timeout = 10 // Connect/read/write timeout duration (in seconds) to TES endpoint. Default 10s.
+}
+```
+
+### TES Server
+=======
 ## TES Server
+>>>>>>> master
 
 You can deploy a local [Funnel](https://ohsu-comp-bio.github.io/funnel) server using the following commands:
 
