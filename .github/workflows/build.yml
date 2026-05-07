@@ -124,7 +124,6 @@ jobs:
           process {
               executor = 'tes'
               // Pinning to recent LTS release for stability/security
-              // See:https://github.com/nextflow-io/nextflow/issues/7114
               container = 'ubuntu:24.04'
           }
           params {
