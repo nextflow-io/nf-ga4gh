@@ -131,12 +131,9 @@ jobs:
               basicUsername              = null
               basicPassword              = null
           }
-          report.enabled = true
-          timeline.enabled = true
+          // report.enabled = true
+          // timeline.enabled = true
           EOF
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Run nf-canary
         run: |
