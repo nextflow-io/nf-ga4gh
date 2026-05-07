@@ -123,7 +123,9 @@ jobs:
           }
           process {
               executor = 'tes'
-              container = 'ubuntu:latest'
+              // Pinning to recent LTS release for stability/security
+              // See:https://github.com/nextflow-io/nextflow/issues/7114
+              container = 'ubuntu:24.04'
           }
           params {
               // TES
@@ -131,8 +133,8 @@ jobs:
               basicUsername              = null
               basicPassword              = null
           }
-          // report.enabled = true
-          // timeline.enabled = true
+          report.enabled = true
+          timeline.enabled = true
           EOF
 
       - name: Run nf-canary
