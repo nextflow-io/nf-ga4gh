@@ -259,6 +259,7 @@ class TesTaskHandler extends TaskHandler {
         }
 
         body.setName(task.getName())
+        body.setTags(executor.getTags())
 
         // add the executor
         body.executors = List.of(exec)

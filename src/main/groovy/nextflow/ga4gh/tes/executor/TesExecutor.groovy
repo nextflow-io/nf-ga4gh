@@ -153,6 +153,16 @@ class TesExecutor extends Executor implements ExtensionPoint {
         return storageAccount
     }
 
+    protected Map<String,String> getTags() {
+        // Explicitly convert the values to String to allow passing tags through environment
+        // variables, e.g. `tes { tags { MY_VAR = "${MY_VAR}" } }`. Env var values are otherwise of
+        // GString type and cause the error `class org.codehaus.groovy.runtime.GStringImpl cannot
+        // be cast to class java.lang.String`.
+        final Map<String,String> result = (session.config.navigate('tes.tags') as Map)
+    ?.collectEntries { k, v -> [k.toString(), v.toString()] }
+        return result
+    }
+
     /**
      * @return {@code true} whenever the containerization is managed by the executor itself
      */
@@ -166,7 +176,10 @@ class TesExecutor extends Executor implements ExtensionPoint {
      * @return the task monitor instance
      */
     TaskMonitor createTaskMonitor() {
-        return TaskPollingMonitor.create(session, config, name, 5, Duration.of('50ms'))
+        final pollInterval = session.config.navigate('tes.pollInterval', '5s') as String;
+        TaskMonitor tpm = TaskPollingMonitor.create(session, config, name, 5, Duration.of(pollInterval));
+        log.debug "Initialized task polling monitor (polling interval: ${pollInterval})";
+        return tpm;
     }
 
     /*
