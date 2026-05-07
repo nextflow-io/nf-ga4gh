@@ -135,6 +135,9 @@ jobs:
           timeline.enabled = true
           EOF
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run nf-canary
         run: |
           export NXF_ANSI_LOG=false
