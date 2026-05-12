@@ -254,7 +254,7 @@ class TesTaskHandler extends TaskHandler {
             final type = param.type == 'dir'
                 ? 'DIRECTORY'
                 : 'FILE'
-            for( final pattern : param.getFilePatterns(task.context, task.workDir) )
+            for( final pattern : param.getFilePatterns(task.context, task.targetDir) )
                 body.addOutputsItem(outItem(pattern, type))
         }
 
@@ -314,11 +314,11 @@ class TesTaskHandler extends TaskHandler {
         if( fileName.contains('*') || fileName.contains('?') ) {
             result.path = "$WORK_DIR/$fileName"
             result.pathPrefix = WORK_DIR
-            result.url = task.workDir.toUriString()
+            result.url = task.targetDir.toUriString()
         }
         else {
             result.path = "$WORK_DIR/$fileName"
-            result.url = task.workDir.resolve(fileName).toUriString()
+            result.url = task.targetDir.resolve(fileName).toUriString()
         }
         if( type != null )
             result.type = type
