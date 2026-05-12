@@ -2,7 +2,7 @@ name: nf-ga4gh CI
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
   pull_request:
     types: [opened, reopened, synchronize]
   workflow_dispatch:
@@ -16,10 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java_version: [
-          17,
-          21,
-        ]
+        java_version: [17, 21]
 
     steps:
       - name: Environment
@@ -52,12 +49,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nextflow_version: [
-            '25.10',
-        ]
-        java_version: [
-            21,
-        ]
+        java_version: [21]
+        nextflow_version: ['25.10']
 
     steps:
       - name: Checkout

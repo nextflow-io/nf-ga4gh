@@ -14,7 +14,7 @@ To use this plugin, add it to your `nextflow.config`:
 
 ```groovy
 plugins {
-  id 'nf-ga4gh'
+    id 'nf-ga4gh'
 }
 ```
 
@@ -36,10 +36,12 @@ process.executor = 'tes'
 plugins {
     id 'nf-ga4gh'
 }
+
 process {
     executor = 'tes'
     container = 'quay.io/nextflow/bash'
 }
+
 tes {
     // See `Authentication` section
     endpoint = 'http://localhost:8000'
@@ -96,6 +98,7 @@ tes {
 ```
 
 #### OAuth
+
 ```groovy
 tes {
     oauthToken = '<token>'
