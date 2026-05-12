@@ -18,19 +18,19 @@ nextflow run seqeralabs/nf-canary -plugins nf-ga4gh@<version>
 
 ## Pull Requests
 
-Community contributions should adhere to the following standards:
+Community contributions must adhere to the following standards:
 
-- Every change should be proposed through a **pull request (PR)**
+- Every change must be proposed through a **pull request (PR)**
 
-- All functionality (e.g. config options) should be **documented** in the README (or the `docs` folder if needed)
+- All functionality (e.g. config options) must be **documented** in the README (or the `docs` folder if needed)
 
 - Every PR must be **approved** by at least one maintainer or a delegated reviewer
 
 - Every PR must **pass** the required CI checks, which include building the plugin, unit tests, and an end-to-end test with a Nextflow pipeline
 
-- PRs should be **squashed** when merged to `main`
+- PRs must be **squashed** when merged to `main`
 
-- Community PRs should **not** update the version file -- the version should only be updated in a separate release commit when making a release
+- Community PRs must **not** update the version file -- the version should only be updated in a separate release commit when making a release
 
 ## Publishing
 
