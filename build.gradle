@@ -15,12 +15,7 @@ dependencies {
 
 version = project.file('VERSION').text.trim()
 
-sourceSets {
-    test {
-        groovy.srcDirs = ['src/test']
-    }
-}
-
+// Enable test output
 test {
     testLogging {
         events 'passed', 'skipped', 'failed'
