@@ -17,6 +17,9 @@
 package nextflow.ga4gh.tes.executor
 
 import nextflow.Session
+import nextflow.ga4gh.tes.client.auth.ApiKeyAuth
+import nextflow.ga4gh.tes.client.auth.HttpBasicAuth
+import nextflow.ga4gh.tes.client.auth.OAuth
 import spock.lang.Specification
 
 /**
@@ -48,8 +51,133 @@ class TesExecutorTest extends Specification {
 
         when:
         def result = exec.getEndpoint()
-        
+
         then:
         result == System.getenv('NXF_EXECUTOR_TES_ENDPOINT') ?: 'http://example.com'
+    }
+
+    def 'should configure basic auth'() {
+        given:
+        def config = [tes: [basicUsername: 'user1', basicPassword: 'pass1']]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def auths = exec.getAuthentications()
+
+        then:
+        auths.size() == 1
+        auths['basic'] instanceof HttpBasicAuth
+        (auths['basic'] as HttpBasicAuth).username == 'user1'
+        (auths['basic'] as HttpBasicAuth).password == 'pass1'
+    }
+
+    def 'should configure api key auth in query mode'() {
+        given:
+        def config = [tes: [apiKeyParamName: 'key', apiKey: 'secret123']]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def auths = exec.getAuthentications()
+
+        then:
+        auths.size() == 1
+        auths['apikey'] instanceof ApiKeyAuth
+        (auths['apikey'] as ApiKeyAuth).apiKey == 'secret123'
+        (auths['apikey'] as ApiKeyAuth).location == 'query'
+        (auths['apikey'] as ApiKeyAuth).paramName == 'key'
+    }
+
+    def 'should configure api key auth in header mode'() {
+        given:
+        def config = [tes: [apiKeyParamName: 'X-Api-Key', apiKey: 'secret123', apiKeyParamMode: 'header']]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def auths = exec.getAuthentications()
+
+        then:
+        auths.size() == 1
+        auths['apikey'] instanceof ApiKeyAuth
+        (auths['apikey'] as ApiKeyAuth).location == 'header'
+    }
+
+    def 'should configure oauth'() {
+        given:
+        def config = [tes: [oauthToken: 'mytoken']]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def auths = exec.getAuthentications()
+
+        then:
+        auths.size() == 1
+        auths['oauth'] instanceof OAuth
+        (auths['oauth'] as OAuth).accessToken == 'mytoken'
+    }
+
+    def 'should return no auths when none configured'() {
+        given:
+        def exec = new TesExecutor(session: new Session([:]))
+
+        when:
+        def auths = exec.getAuthentications()
+
+        then:
+        auths.isEmpty()
+    }
+
+    def 'should configure tags'() {
+        given:
+        def config = [tes: [tags: [env: 'prod', team: 'bio']]]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def tags = exec.getTags()
+
+        then:
+        tags == [env: 'prod', team: 'bio']
+        tags.every { k, v -> v instanceof String }
+    }
+
+    def 'should stringify GString tag values'() {
+        given:
+        def myVar = 'dynamic'
+        def config = [tes: [tags: [label: "${myVar}-value"]]]
+        def exec = new TesExecutor(session: new Session(config))
+
+        when:
+        def tags = exec.getTags()
+
+        then:
+        tags['label'] == 'dynamic-value'
+        tags['label'] instanceof String
+    }
+
+    def 'should return null tags when not configured'() {
+        given:
+        def exec = new TesExecutor(session: new Session([:]))
+
+        when:
+        def tags = exec.getTags()
+
+        then:
+        tags == null
+    }
+
+    def 'should read poll interval from config'() {
+        given:
+        def config = [tes: [pollInterval: '30s']]
+        def session = new Session(config)
+
+        expect:
+        session.config.navigate('tes.pollInterval', '5s') == '30s'
+    }
+
+    def 'should use default poll interval when not configured'() {
+        given:
+        def session = new Session([:])
+
+        expect:
+        session.config.navigate('tes.pollInterval', '5s') == '5s'
     }
 }
