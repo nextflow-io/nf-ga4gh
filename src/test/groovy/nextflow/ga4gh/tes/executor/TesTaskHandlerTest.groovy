@@ -60,6 +60,28 @@ class TesTaskHandlerTest extends Specification {
 
     }
 
+    def 'should apply tags to TES task'() {
+        given:
+        def executor = Mock(TesExecutor)
+        def task = Mock(TaskRun) {
+            getInputFilesMap() >> [:]
+            getOutputFilesNames() >> []
+            getOutputsByType(_) >> [:]
+        }
+        task.getName() >> 'tes-task'
+        task.getWorkDir() >> Paths.get('.')
+        task.getConfig() >> new TaskConfig()
+        task.getContainer() >> 'foo'
+        def handler = new TesTaskHandler(task, executor)
+
+        when:
+        def t = handler.newTesTask()
+
+        then:
+        1 * executor.getTags() >> [env: 'prod', team: 'bio']
+        t.getTags() == [env: 'prod', team: 'bio']
+    }
+
     def 'should submit job' () {
 
         given:

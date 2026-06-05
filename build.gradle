@@ -15,6 +15,13 @@ dependencies {
 
 version = project.file('VERSION').text.trim()
 
+// Enable test output
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
 nextflowPlugin {
     nextflowVersion = '25.10.0'
 
@@ -24,3 +31,4 @@ nextflowPlugin {
         'nextflow.ga4gh.tes.executor.TesExecutor'
     ]
 }
+
