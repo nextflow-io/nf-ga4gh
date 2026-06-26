@@ -203,12 +203,28 @@ class DrsFileSystemProvider extends FileSystemProvider {
 
     @Override
     def <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options) throws IOException {
-        throw new UnsupportedOperationException('readAttributes not supported by DRS file system')
+        checkDrsPath(path)
+        if (type != BasicFileAttributes && type != DrsFileAttributes)
+            throw new UnsupportedOperationException("Unsupported attributes type '${type}' for DRS file system")
+        final stat = newDrsClient().stat(path.toUri())
+        return (A) new DrsFileAttributes(stat)
     }
 
     @Override
     Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
-        throw new UnsupportedOperationException('readAttributes not supported by DRS file system')
+        checkDrsPath(path)
+        final attrs = readAttributes(path, BasicFileAttributes, options)
+        return [
+            size           : attrs.size(),
+            creationTime   : attrs.creationTime(),
+            lastModifiedTime: attrs.lastModifiedTime(),
+            lastAccessTime : attrs.lastAccessTime(),
+            isRegularFile  : attrs.isRegularFile(),
+            isDirectory    : attrs.isDirectory(),
+            isSymbolicLink : attrs.isSymbolicLink(),
+            isOther        : attrs.isOther(),
+            fileKey        : attrs.fileKey(),
+        ] as Map<String, Object>
     }
 
     @Override
@@ -281,17 +297,25 @@ class DrsFileSystemProvider extends FileSystemProvider {
      * Create a {@link DrsClient} configured with the optional Bearer token
      * from {@code nextflow.config} ({@code drs.accessToken}).
      *
+     * The metadata API scheme defaults to {@code https}; set
+     * {@code drs.metadataScheme = 'http'} in {@code nextflow.config} to target
+     * a plain-HTTP DRS server (e.g. a local instance during development).
+     *
      * Falls back gracefully when no Nextflow session is active (e.g. in tests).
      */
     protected DrsClient newDrsClient() {
         String token = null
+        String metadataScheme = 'https'
         try {
             final session = Global.session as Session
             token = session?.config?.navigate('drs.accessToken') as String
+            final configuredScheme = session?.config?.navigate('drs.metadataScheme') as String
+            if (configuredScheme)
+                metadataScheme = configuredScheme
         }
         catch (Exception e) {
-            log.trace "[DRS] Could not read session config for access token: ${e.message}"
+            log.trace "[DRS] Could not read session config: ${e.message}"
         }
-        return new DrsClient(token)
+        return new DrsClient(token, metadataScheme)
     }
 }
