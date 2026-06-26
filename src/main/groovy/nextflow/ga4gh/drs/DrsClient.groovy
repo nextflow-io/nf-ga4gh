@@ -86,6 +86,44 @@ class DrsClient {
         // --- Hop 1: GET /objects/{object_id} ---
         final objectUrl = "${baseUrl}/objects/${objectId}"
         final drsObject = getJson(objectUrl)
+        return resolveAccess(baseUrl, objectId, host, drsObject)
+    }
+
+    /**
+     * Fetch the DRS object metadata (hop 1 only) and return its size and
+     * timestamps. Used to answer {@code readAttributes} so the file can be
+     * staged into a task work directory without downloading it first.
+     *
+     * @param drsUri a {@code drs://} URI
+     * @return a {@link DrsStat} with size (bytes) and modified time (epoch millis)
+     */
+    DrsStat stat(URI drsUri) throws IOException {
+        if (drsUri.scheme != 'drs')
+            throw new IllegalArgumentException("Expected a drs:// URI, got: $drsUri")
+
+        final host = drsUri.host
+        final port = drsUri.port > 0 ? ":${drsUri.port}" : ''
+        final objectId = drsUri.path?.replaceFirst('^/', '') ?: ''
+        final baseUrl = "${metadataScheme}://${host}${port}/ga4gh/drs/v1"
+
+        final drsObject = getJson("${baseUrl}/objects/${objectId}")
+        final size = (drsObject.size as Number)?.longValue() ?: 0L
+        final modified = parseTimestamp(drsObject.updated_time as String) ?:
+                         parseTimestamp(drsObject.created_time as String) ?: 0L
+        return new DrsStat(size: size, modifiedMillis: modified)
+    }
+
+    private static Long parseTimestamp(String iso) {
+        if (!iso) return null
+        try {
+            return java.time.Instant.parse(iso).toEpochMilli()
+        }
+        catch (Exception ignored) {
+            return null
+        }
+    }
+
+    private AccessUrl resolveAccess(String baseUrl, String objectId, String host, Map drsObject) throws IOException {
 
         final accessMethods = drsObject.access_methods as List<Map>
         if (!accessMethods)
@@ -181,5 +219,19 @@ class DrsClient {
 
         @Override
         String toString() { "AccessUrl(url=$url, headers=$headers)" }
+    }
+
+    /**
+     * Lightweight object metadata from DRS hop 1, used to answer
+     * {@code readAttributes} without downloading the object.
+     */
+    static class DrsStat {
+        /** Object size in bytes */
+        long size
+        /** Last-modified time in epoch milliseconds (0 if unknown) */
+        long modifiedMillis
+
+        @Override
+        String toString() { "DrsStat(size=$size, modifiedMillis=$modifiedMillis)" }
     }
 }
