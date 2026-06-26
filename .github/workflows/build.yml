@@ -119,8 +119,7 @@ jobs:
               // Pinning to recent LTS release for stability/security
               container = 'ubuntu:24.04'
           }
-          params {
-              // TES
+          tes {
               endpoint                   = 'http://localhost:8000'
               basicUsername              = null
               basicPassword              = null
