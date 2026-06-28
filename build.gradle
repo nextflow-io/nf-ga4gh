@@ -64,7 +64,7 @@ nextflowPlugin {
     extensionPoints = [
         'nextflow.ga4gh.drs.DrsPathFactory',
         'nextflow.ga4gh.drs.DrsPathRegistrant',
-        'nextflow.ga4gh.tes.config.TesConfig'
+        'nextflow.ga4gh.tes.config.TesConfig',
         'nextflow.ga4gh.tes.executor.TesExecutor',
     ]
 }
