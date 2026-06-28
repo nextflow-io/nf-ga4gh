@@ -17,6 +17,7 @@
 package nextflow.ga4gh.tes.executor
 
 import nextflow.ga4gh.tes.client.model.TesFileType
+import nextflow.ga4gh.tes.util.AzureBlobUrlNormalizer
 import nextflow.processor.TaskBean
 
 import static nextflow.processor.TaskStatus.COMPLETED
@@ -125,6 +126,7 @@ class TesTaskHandler extends TaskHandler {
         }
 
         final response = client.getTask(requestId, null)
+        normalizeTaskUrls(response)
         if( response.state in COMPLETE_STATUSES ) {
             // finalize the task
             log.trace "[TES] Task completed > $task.name"
@@ -141,6 +143,7 @@ class TesTaskHandler extends TaskHandler {
     private int readExitStatus() {
         try {
             TesTask tesTask = client.getTask(requestId, 'FULL')
+            normalizeTaskUrls(tesTask)
             if (tesTask.state == TesState.COMPLETE) {
                 return 0
             }
@@ -331,24 +334,96 @@ class TesTaskHandler extends TaskHandler {
     }
 
     /**
-     * Fix local paths when using TES Azure, which requires the
-     * following AZ path:
+     * Fix paths for TES Azure by normalizing to canonical AZ path format:
      *
-     *   az://<blob>/<path>
+     *   az://<storage-account>/<blob>/<path>  →  az://<storage-account>/<blob>/<path>
+     *   az://<blob>/<path>                    →  az://<configured-storage-account>/<blob>/<path>
      *
-     * to be formatted as:
+     * Also handles local filesystem paths when a cloud bucket dir is
+     * configured (i.e. the work dir is Azure but the file object resolved
+     * to a local cache path). In that case, the local path is rebased onto
+     * the Azure bucket path:
      *
-     *   /<storage-account>/<blob>/<path>
+     *   <localWorkDir>/<rel>  →  az://<storage-account>/<blob>/<bucketRelPath>/<rel>
      *
      * @param url
      */
     private String fixTesAzureLocalPath(String url) {
-        if( !url.startsWith('az://') )
+        // Case 1: az:// URI — normalize to canonical az://storageAccount/container/path
+        if( url.startsWith('az://') ) {
+            final withoutScheme = url.substring('az://'.length())
+            final parts = withoutScheme.split('/').findAll { it }
+            final storageAccount = executor.getAzureStorageAccount()
+
+            // Canonical form: az://storageAccount/container/blob/path
+            if( parts.size() >= 3 && storageAccount && parts[0] == storageAccount )
+                return "az://${parts.join('/')}"
+
+            // If no configured account is available, preserve explicit az:// segments as-is
+            if( parts.size() >= 3 && !storageAccount )
+                return "az://${parts.join('/')}"
+
+            // Legacy form: az://container/blob/path
+            if( storageAccount )
+                return "az://${storageAccount}/${withoutScheme}".replaceAll('/+$', '')
             return url
+        }
+
+        // Case 2: local file path — try to map through the bucket dir if available
+        if( url.contains('://') )
+            return url   // some other URI scheme; leave untouched
+
         final storageAccount = executor.getAzureStorageAccount()
-        if( !executor.getEndpoint().contains('azure.com') || !storageAccount )
+        if( !storageAccount )
             return url
-        return url.replaceAll('az://', "/${storageAccount}/")
+
+        // Requires session.bucketDir pointing to an Azure path (set via -w az://...)
+        final mapping = executor.getAzureWorkDirMapping()
+        if( !mapping )
+            return url
+
+        final String localBase = mapping.localBase
+        if( !url.startsWith(localBase) )
+            return url
+
+        // Parse az://<blob>/<bucketRelPath>
+        final String azureUri = mapping.azureUri
+        final withoutScheme = azureUri.substring('az://'.length())
+        final slashIdx = withoutScheme.indexOf('/')
+        final blob = slashIdx >= 0 ? withoutScheme.substring(0, slashIdx) : withoutScheme
+        final bucketRelPath = slashIdx >= 0 ? withoutScheme.substring(slashIdx + 1) : ''
+
+        // e.g. localBase=/Users/.../work, url=/Users/.../work/3a/abc/.command.sh
+        final relPath = url.substring(localBase.length()).replaceAll('^/', '')
+        final fullPath = bucketRelPath ? "${bucketRelPath}/${relPath}" : relPath
+        return "az://${storageAccount}/${blob}/${fullPath}".replaceAll('/+$', '')
+    }
+
+    /**
+     * Normalize all input/output URLs in a TesTask to canonical az:// format.
+     * This ensures consistent URL handling when TES service returns mixed path-style and az:// URLs.
+     */
+    private void normalizeTaskUrls(TesTask task) {
+        if( !task )
+            return
+
+        // Normalize input URLs
+        if( task.inputs ) {
+            task.inputs.each { input ->
+                if( input?.url ) {
+                    input.url = AzureBlobUrlNormalizer.normalizeToAzurePath(input.url)
+                }
+            }
+        }
+
+        // Normalize output URLs
+        if( task.outputs ) {
+            task.outputs.each { output ->
+                if( output?.url ) {
+                    output.url = AzureBlobUrlNormalizer.normalizeToAzurePath(output.url)
+                }
+            }
+        }
     }
 
 }
