@@ -153,6 +153,25 @@ class TesExecutor extends Executor implements ExtensionPoint {
         return storageAccount
     }
 
+    /**
+     * If the session has a cloud bucket dir (e.g. az://inputs/nextflow/work) and a local
+     * work dir, returns a map with `localBase` (String) and `azureUri` (String) so that
+     * callers can map local paths into their Azure equivalents.
+     */
+    @PackageScope
+    @groovy.transform.CompileStatic(groovy.transform.TypeCheckingMode.SKIP)
+    Map<String, String> getAzureWorkDirMapping() {
+        final storageAccount = getAzureStorageAccount()
+        if( !storageAccount ) return null
+        final bucketDir = session.bucketDir
+        if( !bucketDir ) return null
+        final bucketUri = bucketDir.toUriString()
+        if( !bucketUri.startsWith('az://') ) return null
+        final localWorkDir = session.workDir?.toString()
+        if( !localWorkDir ) return null
+        return [localBase: localWorkDir, azureUri: bucketUri]
+    }
+
     protected Map<String,String> getTags() {
         // Explicitly convert the values to String to allow passing tags through environment
         // variables, e.g. `tes { tags { MY_VAR = "${MY_VAR}" } }`. Env var values are otherwise of

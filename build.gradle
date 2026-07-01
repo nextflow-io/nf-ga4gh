@@ -30,8 +30,9 @@ nextflowPlugin {
     provider = 'nextflow'
     className = 'nextflow.ga4gh.Ga4ghPlugin'
     extensionPoints = [
-        'nextflow.ga4gh.tes.executor.TesExecutor',
-        'nextflow.ga4gh.drs.DrsPathRegistrant',
         'nextflow.ga4gh.drs.DrsPathFactory',
+        'nextflow.ga4gh.drs.DrsPathRegistrant',
+        'nextflow.ga4gh.tes.config.TesConfig',
+        'nextflow.ga4gh.tes.executor.TesExecutor',
     ]
 }

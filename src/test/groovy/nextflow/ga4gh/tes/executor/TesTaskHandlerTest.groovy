@@ -32,6 +32,27 @@ import spock.lang.Specification
  */
 class TesTaskHandlerTest extends Specification {
 
+    def 'should normalize canonical and legacy az urls to storage-account az format'() {
+
+        given:
+        def executor = Mock(TesExecutor)
+        def task = Mock(TaskRun) {
+            getWorkDir() >> Paths.get('.')
+        }
+        def handler = new TesTaskHandler(task, executor)
+        def method = TesTaskHandler.getDeclaredMethod('fixTesAzureLocalPath', String)
+        method.accessible = true
+
+        when:
+        def canonical = method.invoke(handler, 'az://mystorage/inputs/work/file.txt')
+        def legacy = method.invoke(handler, 'az://inputs/work/file.txt')
+
+        then:
+        canonical == 'az://mystorage/inputs/work/file.txt'
+        legacy == 'az://mystorage/inputs/work/file.txt'
+        2 * executor.getAzureStorageAccount() >> 'mystorage'
+    }
+
     def 'should set resources' () {
 
         given:
