@@ -50,15 +50,27 @@ class DrsClient {
     private final String bearerToken
 
     /**
+     * Optional HTTP Basic auth credentials ({@code username:password}, already
+     * base64-encoded) sent as {@code Authorization: Basic <credentials>} when
+     * no bearer token is configured. Used by DRS servers (e.g. Syfon in
+     * {@code auth.mode: local} / {@code basic} mode) that gate the metadata
+     * API with Basic auth rather than a bearer token.
+     */
+    private final String basicAuthCredentials
+
+    /**
      * The URL scheme used to contact the DRS metadata API.
      * Production deployments always use {@code https}; set to {@code http}
      * in tests that stub with plain-HTTP servers (e.g. WireMock).
      */
     private final String metadataScheme
 
-    DrsClient(String bearerToken = null, String metadataScheme = 'https') {
+    DrsClient(String bearerToken = null, String metadataScheme = 'https', String username = null, String password = null) {
         this.bearerToken = bearerToken
         this.metadataScheme = metadataScheme
+        this.basicAuthCredentials = (username && password)
+            ? Base64.encoder.encodeToString("${username}:${password}".getBytes('UTF-8'))
+            : null
     }
 
     /**
@@ -185,6 +197,8 @@ class DrsClient {
             connection.setRequestProperty('Accept', 'application/json')
             if (bearerToken)
                 connection.setRequestProperty('Authorization', "Bearer ${bearerToken}")
+            else if (basicAuthCredentials)
+                connection.setRequestProperty('Authorization', "Basic ${basicAuthCredentials}")
 
             final status = connection.responseCode
             if (status < 200 || status >= 300) {

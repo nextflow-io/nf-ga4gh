@@ -294,8 +294,11 @@ class DrsFileSystemProvider extends FileSystemProvider {
     }
 
     /**
-     * Create a {@link DrsClient} configured with the optional Bearer token
-     * from {@code nextflow.config} ({@code drs.accessToken}).
+     * Create a {@link DrsClient} configured with the optional auth credentials
+     * from {@code nextflow.config}: a Bearer token ({@code drs.accessToken}),
+     * or HTTP Basic credentials ({@code drs.username} / {@code drs.password})
+     * for DRS servers that gate the metadata API with Basic auth instead.
+     * When both are set, the Bearer token takes precedence.
      *
      * The metadata API scheme defaults to {@code https}; set
      * {@code drs.metadataScheme = 'http'} in {@code nextflow.config} to target
@@ -305,10 +308,14 @@ class DrsFileSystemProvider extends FileSystemProvider {
      */
     protected DrsClient newDrsClient() {
         String token = null
+        String username = null
+        String password = null
         String metadataScheme = 'https'
         try {
             final session = Global.session as Session
             token = session?.config?.navigate('drs.accessToken') as String
+            username = session?.config?.navigate('drs.username') as String
+            password = session?.config?.navigate('drs.password') as String
             final configuredScheme = session?.config?.navigate('drs.metadataScheme') as String
             if (configuredScheme)
                 metadataScheme = configuredScheme
@@ -316,6 +323,6 @@ class DrsFileSystemProvider extends FileSystemProvider {
         catch (Exception e) {
             log.trace "[DRS] Could not read session config: ${e.message}"
         }
-        return new DrsClient(token, metadataScheme)
+        return new DrsClient(token, metadataScheme, username, password)
     }
 }

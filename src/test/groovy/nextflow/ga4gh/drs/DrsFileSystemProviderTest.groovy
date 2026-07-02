@@ -235,6 +235,69 @@ class DrsFileSystemProviderTest extends Specification {
             .withHeader('Authorization', equalTo('Bearer my-drs-token')))
     }
 
+    def 'should send basic auth to DRS metadata endpoint when configured'() {
+        given: 'a provider configured with basic auth credentials'
+        def provider = new DrsFileSystemProvider() {
+            @Override
+            protected DrsClient newDrsClient() { new DrsClient(null, 'http', 'drs-user', 'drs-pass') }
+        }
+        def fs = new DrsFileSystem(provider, new URI("drs://localhost:${port}"))
+        def path = new DrsPath(fs, '/obj-basic')
+
+        and: 'drs-user:drs-pass base64-encoded'
+        final expectedHeader = "Basic ${Base64.encoder.encodeToString('drs-user:drs-pass'.bytes)}"
+        wireMock.stubFor(get(urlEqualTo('/ga4gh/drs/v1/objects/obj-basic'))
+            .withHeader('Authorization', equalTo(expectedHeader))
+            .willReturn(okJson("""{
+                "id": "obj-basic",
+                "access_methods": [{
+                    "type": "https",
+                    "access_url": { "url": "http://localhost:${port}/download/obj-basic" }
+                }]
+            }""")))
+        wireMock.stubFor(get(urlEqualTo('/download/obj-basic'))
+            .willReturn(ok('basic-auth content')))
+
+        when:
+        def content = Files.readString(path)
+
+        then:
+        content == 'basic-auth content'
+
+        and: 'the Authorization header was sent to the DRS metadata endpoint'
+        wireMock.verify(1, getRequestedFor(urlEqualTo('/ga4gh/drs/v1/objects/obj-basic'))
+            .withHeader('Authorization', equalTo(expectedHeader)))
+    }
+
+    def 'should prefer bearer token over basic auth when both are configured'() {
+        given:
+        def provider = new DrsFileSystemProvider() {
+            @Override
+            protected DrsClient newDrsClient() { new DrsClient('my-drs-token', 'http', 'drs-user', 'drs-pass') }
+        }
+        def fs = new DrsFileSystem(provider, new URI("drs://localhost:${port}"))
+        def path = new DrsPath(fs, '/obj-both')
+
+        and:
+        wireMock.stubFor(get(urlEqualTo('/ga4gh/drs/v1/objects/obj-both'))
+            .withHeader('Authorization', equalTo('Bearer my-drs-token'))
+            .willReturn(okJson("""{
+                "id": "obj-both",
+                "access_methods": [{
+                    "type": "https",
+                    "access_url": { "url": "http://localhost:${port}/download/obj-both" }
+                }]
+            }""")))
+        wireMock.stubFor(get(urlEqualTo('/download/obj-both'))
+            .willReturn(ok('bearer-wins content')))
+
+        when:
+        def content = Files.readString(path)
+
+        then:
+        content == 'bearer-wins content'
+    }
+
     // -------------------------------------------------------------------------
     // TES pass-through invariant
     // -------------------------------------------------------------------------

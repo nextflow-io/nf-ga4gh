@@ -24,6 +24,38 @@ test {
     }
 }
 
+// -----------------------------------------------------------------------
+// integrationTest — exercises the DRS plugin against real, running Syfon
+// and MinIO services (see .github/workflows/drs.yml). Unlike `test`
+// (WireMock-stubbed), this suite is skipped unless SYFON_BASE_URL is set,
+// so it never runs as part of a plain `./gradlew test` or `./gradlew build`.
+// -----------------------------------------------------------------------
+sourceSets {
+    integrationTest {
+        groovy.srcDirs = ['src/integrationTest/groovy']
+        resources.srcDirs = ['src/integrationTest/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs DRS integration tests against live Syfon + MinIO services.'
+    group = 'verification'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+    shouldRunAfter test
+}
+
 nextflowPlugin {
     nextflowVersion = '25.10.0'
 
