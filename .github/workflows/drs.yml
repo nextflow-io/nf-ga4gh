@@ -119,15 +119,24 @@ jobs:
           echo "Syfon failed to start"; docker logs syfon; exit 1
 
       # -----------------------------------------------------------------------
-      # Install the syfon CLI (used by the integration tests to upload
-      # objects) and register the MinIO bucket + org/project scope so
-      # `syfon upload --org $SYFON_ORG --project $SYFON_PROJECT` resolves to it.
+      # Install the syfon CLI (used to register the bucket scope below, and
+      # by the integration tests to upload objects). The `development` image
+      # is musl-linked (Alpine), so its binary won't run directly on the
+      # glibc-based runner — instead, wrap `docker run` so every `syfon`
+      # invocation transparently runs inside a container of the same image.
+      # --network host lets the container reach Syfon/MinIO on localhost.
+      # /tmp is mounted since that's where the integration tests' uploaded
+      # files (java.io.tmpdir) and this job's workspace both live.
       # -----------------------------------------------------------------------
-      - name: Install syfon CLI
+      - name: Install syfon CLI wrapper
         run: |
-          docker create --name syfon-cli quay.io/ohsu-comp-bio/syfon:development
-          docker cp syfon-cli:/usr/local/bin/syfon /usr/local/bin/syfon
-          docker rm syfon-cli
+          cat > /usr/local/bin/syfon <<'EOF'
+          #!/usr/bin/env bash
+          exec docker run --rm --network host \
+            -v /tmp:/tmp \
+            -v "$(pwd)":"$(pwd)" -w "$(pwd)" \
+            quay.io/ohsu-comp-bio/syfon:development "$@"
+          EOF
           chmod +x /usr/local/bin/syfon
 
       - name: Register Syfon bucket, organization, and project scope
