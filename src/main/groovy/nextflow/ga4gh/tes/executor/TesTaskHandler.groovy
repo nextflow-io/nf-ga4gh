@@ -245,10 +245,10 @@ class TesTaskHandler extends TaskHandler {
         }
 
         // add the task output files
-        body.addOutputsItem(outItem(outputFile.name))
-        body.addOutputsItem(outItem(errorFile.name))
-        body.addOutputsItem(outItem(logFile.name))
-        body.addOutputsItem(outItem(exitFile.name))
+        body.addOutputsItem(outItem(outputFile.name, 'FILE'))
+        body.addOutputsItem(outItem(errorFile.name, 'FILE'))
+        body.addOutputsItem(outItem(logFile.name, 'FILE'))
+        body.addOutputsItem(outItem(exitFile.name, 'FILE'))
 
         // set requested resources
         body.setResources(getResources(task.config))
