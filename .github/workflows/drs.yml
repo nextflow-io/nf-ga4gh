@@ -46,6 +46,12 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Start MinIO
+      #
+      # MINIO_DOMAIN is required so MinIO accepts virtual-hosted-style
+      # requests (Host: <bucket>.localhost) — the syfon CLI's S3 client
+      # always addresses buckets this way unless given an IP-literal
+      # endpoint, and without MINIO_DOMAIN set, MinIO responds 400 Bad
+      # Request to any such request.
       # -----------------------------------------------------------------------
       - name: Start MinIO
         run: |
@@ -53,6 +59,7 @@ jobs:
             --network host \
             -e MINIO_ROOT_USER=$MINIO_ROOT_USER \
             -e MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASS \
+            -e MINIO_DOMAIN=localhost \
             minio/minio:latest server /data
 
       - name: Wait for MinIO
