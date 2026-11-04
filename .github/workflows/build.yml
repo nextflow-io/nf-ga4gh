@@ -1,0 +1,153 @@
+name: nf-ga4gh CI
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build nf-ga4gh
+    if: "!contains(github.event.head_commit.message, '[ci skip]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        java_version: [17, 21]
+
+    steps:
+      - name: Environment
+        run: env | sort
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # ratchet:actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Setup Java ${{ matrix.java_version }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # ratchet:actions/setup-java@v5
+        with:
+          java-version: ${{matrix.java_version}}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Unit tests
+        run: make test
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.daemon=false'
+
+  e2e-test:
+    needs: build
+    name: Test nf-ga4gh
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java_version: [21]
+        nextflow_version: ['25.10']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # ratchet:actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Setup Java ${{ matrix.java_version }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # ratchet:actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java_version }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Install Nextflow ${{ matrix.nextflow_version }}
+        uses: nf-core/setup-nextflow@6c2e22b4d901f0c42ca66c5069f8026df026d165 # ratchet:nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.nextflow_version }}
+
+      - name: Install Plugin
+        run: |
+          make install
+
+      - name: Install TES Server
+        run: |
+          # Pinning install script below to stable commit for security/reproducibility
+          # Ref: https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions
+          # Release: https://github.com/calypr/funnel/releases/tag/v0.11.8
+
+          INSTALL_SCRIPT=https://raw.githubusercontent.com/calypr/funnel/4103475e492dec1fd853e9863d0caad15fc504c0/install.sh
+          curl -fsSL $INSTALL_SCRIPT | bash -s -- v0.11.8
+
+      - name: Start TES Server
+        run: |
+          set -euo pipefail
+          nohup funnel server run > funnel.log 2>&1 &
+          echo $! > funnel.pid
+          for i in $(seq 1 10); do
+            if curl -fsS http://localhost:8000/service-info >/dev/null 2>&1; then
+              echo "Funnel server started"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Funnel server failed to start!"
+          cat funnel.log
+          exit 1
+
+      - name: Get plugin version
+        shell: bash
+        run: |
+          PLUGIN_VERSION="$(cat VERSION)"
+          echo "PLUGIN_VERSION=${PLUGIN_VERSION}" >> "$GITHUB_ENV"
+          echo "Using plugin version: ${PLUGIN_VERSION}"
+
+      - name: Install nf-canary
+        run: |
+          cat <<EOF > nextflow.config
+          // Nextflow config file for running on TES Backend
+          plugins {
+            id 'nf-ga4gh@${PLUGIN_VERSION}'
+          }
+          process {
+              executor = 'tes'
+              // Pinning to recent LTS release for stability/security
+              container = 'ubuntu:24.04'
+          }
+          tes {
+              endpoint                   = 'http://localhost:8000'
+              basicUsername              = null
+              basicPassword              = null
+          }
+          report.enabled = true
+          timeline.enabled = true
+          EOF
+
+      - name: Run nf-canary
+        run: |
+          export NXF_ANSI_LOG=false
+          nextflow run seqeralabs/nf-canary
+
+      - name: Stage Reports
+        if: always()
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/results
+
+          # Nextflow Logs
+          cp -f report.html timeline.html .nextflow.log $GITHUB_WORKSPACE/results/ || true
+
+          # Funnel Logs
+          cp -f $GITHUB_WORKSPACE/funnel.log $GITHUB_WORKSPACE/results/ || true
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-nxf-${{ matrix.nextflow_version }}-java-${{ matrix.java_version }}
+          path: results/
+          retention-days: 7

@@ -1,0 +1,70 @@
+plugins {
+    id 'io.nextflow.nextflow-plugin' version '1.0.0-beta.14'
+}
+
+dependencies {
+    // required by the auto-generated TES Java SDK
+    api "com.google.code.gson:gson:2.11.0"
+    api "com.squareup.okhttp:logging-interceptor:2.7.5"
+    api "com.squareup.okhttp:okhttp:2.7.5"
+    api "io.gsonfire:gson-fire:1.8.3"
+    api "io.swagger.core.v3:swagger-annotations:2.0.0"
+    api "javax.annotation:javax.annotation-api:1.3.2"
+    api "org.threeten:threetenbp:1.3.5"
+
+    // Unit tests: WireMock for in-process HTTP stubs
+    testImplementation "org.wiremock:wiremock:3.13.1"
+}
+
+version = project.file('VERSION').text.trim()
+
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+// -----------------------------------------------------------------------
+// integrationTest — exercises the DRS plugin against real, running Syfon
+// and MinIO services (see .github/workflows/drs.yml). Unlike `test`
+// (WireMock-stubbed), this suite is skipped unless SYFON_BASE_URL is set,
+// so it never runs as part of a plain `./gradlew test` or `./gradlew build`.
+// -----------------------------------------------------------------------
+sourceSets {
+    integrationTest {
+        groovy.srcDirs = ['src/integrationTest/groovy']
+        resources.srcDirs = ['src/integrationTest/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs DRS integration tests against live Syfon + MinIO services.'
+    group = 'verification'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+    shouldRunAfter test
+}
+
+nextflowPlugin {
+    nextflowVersion = '25.10.0'
+
+    provider = 'nextflow'
+    className = 'nextflow.ga4gh.Ga4ghPlugin'
+    extensionPoints = [
+        'nextflow.ga4gh.drs.DrsPathFactory',
+        'nextflow.ga4gh.drs.DrsPathRegistrant',
+        'nextflow.ga4gh.tes.config.TesConfig',
+        'nextflow.ga4gh.tes.executor.TesExecutor',
+    ]
+}

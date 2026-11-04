@@ -1,0 +1,186 @@
+name: DRS Integration Tests
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+jobs:
+  drs-integration:
+    name: DRS integration (Java ${{ matrix.java_version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java_version: [21]
+
+    env:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASS: minioadmin
+      MINIO_BUCKET: nf-ga4gh-test
+      SYFON_USER: drs-user
+      SYFON_PASS: drs-pass
+      SYFON_ORG: test-org
+      SYFON_PROJECT: test-project
+      SYFON_BASE_URL: http://localhost:8080
+      MINIO_BASE_URL: http://localhost:9000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # ratchet:actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Setup Java ${{ matrix.java_version }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # ratchet:actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java_version }}
+          distribution: temurin
+          cache: gradle
+
+      # -----------------------------------------------------------------------
+      # Start MinIO
+      #
+      # MINIO_DOMAIN is required so MinIO accepts virtual-hosted-style
+      # requests (Host: <bucket>.localhost) — the syfon CLI's S3 client
+      # always addresses buckets this way unless given an IP-literal
+      # endpoint, and without MINIO_DOMAIN set, MinIO responds 400 Bad
+      # Request to any such request.
+      # -----------------------------------------------------------------------
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            --network host \
+            -e MINIO_ROOT_USER=$MINIO_ROOT_USER \
+            -e MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASS \
+            -e MINIO_DOMAIN=localhost \
+            minio/minio:latest server /data
+
+      - name: Wait for MinIO
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+              echo "MinIO ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO failed to start"; docker logs minio; exit 1
+
+      # -----------------------------------------------------------------------
+      # Install mc and create the test bucket
+      # -----------------------------------------------------------------------
+      - name: Install mc
+        run: |
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+          chmod +x /usr/local/bin/mc
+
+      - name: Create MinIO bucket
+        run: |
+          mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASS
+          mc mb --ignore-existing local/$MINIO_BUCKET
+
+      # -----------------------------------------------------------------------
+      # Start Syfon
+      # -----------------------------------------------------------------------
+      - name: Write Syfon config
+        run: |
+          cat > /tmp/syfon-config.yaml <<EOF
+          port: 8080
+
+          auth:
+            mode: local
+            basic:
+              username: $SYFON_USER
+              password: $SYFON_PASS
+
+          database:
+            sqlite:
+              file: /tmp/syfon.db
+
+          credential_encryption:
+            local_key_file: /tmp/syfon-kek.key
+          EOF
+
+      - name: Start Syfon
+        run: |
+          docker run -d --name syfon \
+            --network host \
+            -v /tmp/syfon-config.yaml:/syfon-config.yaml \
+            quay.io/ohsu-comp-bio/syfon:development \
+            serve --config /syfon-config.yaml
+
+      - name: Wait for Syfon
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/healthz >/dev/null 2>&1; then
+              echo "Syfon ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Syfon failed to start"; docker logs syfon; exit 1
+
+      # -----------------------------------------------------------------------
+      # Install the syfon CLI (used to register the bucket scope below, and
+      # by the integration tests to upload objects). The `development` image
+      # is musl-linked (Alpine), so its binary won't run directly on the
+      # glibc-based runner — instead, wrap `docker run` so every `syfon`
+      # invocation transparently runs inside a container of the same image.
+      # --network host lets the container reach Syfon/MinIO on localhost.
+      # /tmp is mounted since that's where the integration tests' uploaded
+      # files (java.io.tmpdir) and this job's workspace both live.
+      # -----------------------------------------------------------------------
+      - name: Install syfon CLI wrapper
+        run: |
+          cat > /usr/local/bin/syfon <<'EOF'
+          #!/usr/bin/env bash
+          exec docker run --rm --network host \
+            -v /tmp:/tmp \
+            -v "$(pwd)":"$(pwd)" -w "$(pwd)" \
+            quay.io/ohsu-comp-bio/syfon:development "$@"
+          EOF
+          chmod +x /usr/local/bin/syfon
+
+      - name: Register Syfon bucket, organization, and project scope
+        run: |
+          syfon --server $SYFON_BASE_URL --username $SYFON_USER --password $SYFON_PASS \
+            bucket add $MINIO_BUCKET \
+            --access-key $MINIO_ROOT_USER --secret-key $MINIO_ROOT_PASS \
+            --endpoint $MINIO_BASE_URL --region us-east-1
+
+          syfon --server $SYFON_BASE_URL --username $SYFON_USER --password $SYFON_PASS \
+            bucket add-organization $SYFON_ORG --path s3://$MINIO_BUCKET/$SYFON_ORG
+
+          syfon --server $SYFON_BASE_URL --username $SYFON_USER --password $SYFON_PASS \
+            bucket add-project $SYFON_ORG $SYFON_PROJECT --path s3://$MINIO_BUCKET/$SYFON_ORG/$SYFON_PROJECT
+
+      # -----------------------------------------------------------------------
+      # Run the integration tests
+      # -----------------------------------------------------------------------
+      - name: Run DRS integration tests
+        run: ./gradlew integrationTest
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.daemon=false'
+          SYFON_BIN: /usr/local/bin/syfon
+
+      # -----------------------------------------------------------------------
+      # Diagnostics and artifacts
+      # -----------------------------------------------------------------------
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "=== MinIO logs ===" && docker logs minio || true
+          echo "=== Syfon logs ===" && docker logs syfon || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drs-integration-results-java-${{ matrix.java_version }}
+          path: build/reports/tests/integrationTest/
+          retention-days: 7
