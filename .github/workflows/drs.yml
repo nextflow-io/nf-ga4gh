@@ -22,23 +22,23 @@ jobs:
     env:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASS: minioadmin
-      MINIO_BUCKET:    nf-ga4gh-test
-      SYFON_USER:      drs-user
-      SYFON_PASS:      drs-pass
-      SYFON_ORG:       test-org
-      SYFON_PROJECT:   test-project
-      SYFON_BASE_URL:  http://localhost:8080
-      MINIO_BASE_URL:  http://localhost:9000
+      MINIO_BUCKET: nf-ga4gh-test
+      SYFON_USER: drs-user
+      SYFON_PASS: drs-pass
+      SYFON_ORG: test-org
+      SYFON_PROJECT: test-project
+      SYFON_BASE_URL: http://localhost:8080
+      MINIO_BASE_URL: http://localhost:9000
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # ratchet:actions/checkout@v6
         with:
           fetch-depth: 1
           submodules: true
 
       - name: Setup Java ${{ matrix.java_version }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # ratchet:actions/setup-java@v5
         with:
           java-version: ${{ matrix.java_version }}
           distribution: temurin
@@ -166,7 +166,7 @@ jobs:
         run: ./gradlew integrationTest
         env:
           GRADLE_OPTS: '-Dorg.gradle.daemon=false'
-          SYFON_BIN:   /usr/local/bin/syfon
+          SYFON_BIN: /usr/local/bin/syfon
 
       # -----------------------------------------------------------------------
       # Diagnostics and artifacts
@@ -178,7 +178,7 @@ jobs:
           echo "=== Syfon logs ===" && docker logs syfon || true
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
         if: always()
         with:
           name: drs-integration-results-java-${{ matrix.java_version }}
